@@ -18,3 +18,9 @@
 **What I learned:** Setting up testing early prevents GitHub CI failures and establishes a solid foundation for test-driven development. Using Vitest over Jest provides faster tests with better TypeScript integration for a Next.js project.
 **Blockers / what I'm stuck on:** None - test infrastructure is now in place to prevent failed CI checks.
 **Plan for tomorrow:** Backend
+
+## Day 3 — 2026-05-09
+**Hours worked:** 2.5
+**What I did:** Implemented per-tool audit inputs instead of a single aggregate input. Updated `src/services/audit.service.ts` to accept a `tools` array (each with name, plan, monthlySpend, seats) while maintaining backward compatibility with the legacy comma-separated format. Rewrote `calculateAudit()` to aggregate per-tool spend and compute seat waste per tool, enabling detection of overlapping tool redundancy and seat under-utilization. Rewrote the entire `CreditAuditForm` component with dynamic tool rows (add/remove rows), proper grid layout with column spans to prevent input overlap, and wired form to POST to `/api/result` for server-side computation. Shareable links provide a lightweight sharing mechanism without requiring login—perfect for collaborative audit reviews and demo/prospect sharing workflows.
+**What I learned:** Per-tool inputs unlock deeper audit insights: overlapping tool detection (e.g., multiple subscriptions to similar models), per-tool seat waste calculation, and more accurate plan-based adjustments.
+**Plan for tomorrow:** Add persistent storage (database models + writes) for audits/leads, then begin building the detailed audit report page to display full breakdown and recommendations. Have email connected to send real emails for acknowledgements.

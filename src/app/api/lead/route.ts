@@ -1,40 +1,37 @@
 import { NextResponse } from "next/server";
-
-type LeadPayload = {
-	email?: string;
-	toolsPaidFor?: string;
-	planType?: string;
-	monthlySpend?: string | number;
-	teamSize?: string | number;
-	primaryUseCase?: string;
-};
-
-function isValidEmail(value: string): boolean {
-	return /.+@.+\..+/.test(value);
-}
+import { createLead, validateLeadInput } from "@/services/lead.service";
 
 export async function POST(request: Request) {
-	let payload: LeadPayload;
+	let payload: unknown;
+
 	try {
-		payload = (await request.json()) as LeadPayload;
+		payload = await request.json();
 	} catch {
 		return NextResponse.json({ error: "Invalid JSON payload." }, { status: 400 });
 	}
 
-	const email = String(payload.email ?? "").trim();
+	const validation = validateLeadInput(payload);
 
-	if (!isValidEmail(email)) {
-		return NextResponse.json({ error: "Valid email is required." }, { status: 400 });
+	if (!validation.ok) {
+		return NextResponse.json(
+			{ error: "Lead validation failed.", details: validation.errors },
+			{ status: 400 }
+		);
 	}
 
-	const leadId = `lead_${Date.now()}`;
+	try {
+		const lead = createLead(validation.data);
 
-	return NextResponse.json(
-		{
-			ok: true,
-			leadId,
-			message: "Lead captured successfully.",
-		},
-		{ status: 200 }
-	);
+		return NextResponse.json(
+			{
+				ok: true,
+				leadId: lead.leadId,
+				message: "Lead captured successfully.",
+				lead,
+			},
+			{ status: 200 }
+		);
+	} catch {
+		return NextResponse.json({ error: "Failed to capture lead." }, { status: 500 });
+	}
 }
