@@ -24,3 +24,40 @@
 **What I did:** Implemented per-tool audit inputs instead of a single aggregate input. Updated `src/services/audit.service.ts` to accept a `tools` array (each with name, plan, monthlySpend, seats) while maintaining backward compatibility with the legacy comma-separated format. Rewrote `calculateAudit()` to aggregate per-tool spend and compute seat waste per tool, enabling detection of overlapping tool redundancy and seat under-utilization. Rewrote the entire `CreditAuditForm` component with dynamic tool rows (add/remove rows), proper grid layout with column spans to prevent input overlap, and wired form to POST to `/api/result` for server-side computation. Shareable links provide a lightweight sharing mechanism without requiring login—perfect for collaborative audit reviews and demo/prospect sharing workflows.
 **What I learned:** Per-tool inputs unlock deeper audit insights: overlapping tool detection (e.g., multiple subscriptions to similar models), per-tool seat waste calculation, and more accurate plan-based adjustments.
 **Plan for tomorrow:** Add persistent storage (database models + writes) for audits/leads, then begin building the detailed audit report page to display full breakdown and recommendations. Have email connected to send real emails for acknowledgements.
+
+## Day 4 — 2026-05-10
+**Hours worked:** 3
+**What I did:**
+- Implemented a deterministic, recommendation-based audit engine in `src/lib/audit-engine/` (pricing catalog, overlap detector, recommendation rules, scoring, evaluator) and rewired `src/services/audit.service.ts` to use `evaluateAudit()` while preserving legacy response fields for backward compatibility.
+- Added a safe LLM summarization layer at `src/lib/ai/ai-summary.ts` which builds a strict prompt, attempts an Anthropic SDK call if `ANTHROPIC_API_KEY` is present, validates numeric output against provided values, and falls back to a deterministic templated summary on timeout/error/hallucination.
+- Wired the frontend to surface the summary: added `src/app/api/summary/route.ts` and updated `src/components/form/CreditAuditForm.tsx` to POST the audit result to `/api/summary`, showing a concise executive summary in the UI.
+- Implemented shareable links (`src/services/share.service.ts`, `/api/share`) and a public read-only audit page at `/audit/[shareId]`.
+- Fixed test & lint regressions, upgraded `@testing-library/react` for React 19 compatibility, and confirmed all tests and lint pass locally.
+
+**What I learned:**
+- Keep LLM integrations strictly read-only for numeric/financial summaries — validate all numbers server-side and provide deterministic fallbacks to avoid hallucinations.
+- Prefer best-effort SDK calls with clear timeouts and non-blocking fallbacks so the UI remains responsive even if external APIs are slow or misconfigured.
+
+**Blockers / what I'm stuck on:**
+- Persistence: current share/lead storage uses in-memory Maps — migrate to a DB for production durability.
+- Email sending: `lead.service.ts` still needs a real SMTP/transactional provider integration.
+
+**Plan for next steps:**
+- Migrate in-memory storage to a persistent DB (recommended priority).
+- Integrate a transactional email provider and update `lead.service.ts` to send the detailed report.
+- Add unit tests for the new `src/lib/audit-engine/*` modules and for `src/lib/ai/ai-summary.ts` validation/fallback behavior.
+
+**ENV / local setup for LLM:**
+- To enable Anthropic summarization locally, create a `.env.local` at the project root and add:
+
+```
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
+```
+
+- Optionally install the SDK for live calls:
+
+```bash
+npm install @anthropic-ai/sdk
+```
+
+If the key or SDK is absent, the service will automatically return a deterministic fallback summary.

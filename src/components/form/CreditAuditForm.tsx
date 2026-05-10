@@ -54,6 +54,8 @@ export default function CreditAuditForm() {
   const [email, setEmail] = useState("");
   const [result, setResult] = useState<ServerAuditResult | null>(null);
   const [shareUrl, setShareUrl] = useState("");
+  const [summary, setSummary] = useState<{ text: string; usedFallback?: boolean } | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [isCapturingLead, setIsCapturingLead] = useState(false);
   const [submitMessage, setSubmitMessage] = useState("");
   const [isLoadingEstimate, setIsLoadingEstimate] = useState(false);
@@ -117,6 +119,33 @@ export default function CreditAuditForm() {
 
       // backend returns summary/result structure
       setResult(body.result ?? null);
+
+      // Fire-and-forget: request a human-friendly LLM summary from the server
+      (async () => {
+        try {
+          setIsLoadingSummary(true);
+          setSummary(null);
+          const sres = await fetch("/api/summary", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              actionableMonthlySavings: body.result?.actionableMonthlySavings ?? 0,
+              recommendations: body.result?.recommendations ?? [],
+              teamSize: teamSize ? Number(teamSize) : undefined,
+              primaryUseCase,
+            }),
+          });
+
+          const sb = await sres.json();
+          if (sres.ok && sb?.text) {
+            setSummary({ text: sb.text, usedFallback: sb.usedFallback });
+          }
+        } catch (err) {
+          // keep UI silent — fallback summary exists elsewhere
+        } finally {
+          setIsLoadingSummary(false);
+        }
+      })();
     } catch {
       setSubmitMessage("Failed to fetch estimate. Try again.");
     } finally {
@@ -325,6 +354,17 @@ export default function CreditAuditForm() {
               <div className="rounded-xl border border-emerald-300/25 bg-emerald-300/10 p-3 text-emerald-100">Actionable monthly savings: <strong>${result.actionableMonthlySavings.toFixed(2)}</strong></div>
               <div className="rounded-xl border border-emerald-300/25 bg-emerald-300/10 p-3 text-emerald-100">Actionable annual savings: <strong>${result.actionableAnnualSavings.toFixed(2)}</strong></div>
               <div className="rounded-xl border border-white/15 bg-white/5 p-3">Spend efficiency score: <strong>{result.efficiencyScore}/100</strong></div>
+            </div>
+
+            <div className="mt-6 rounded-xl border border-white/15 bg-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-300">Executive Summary</p>
+              {isLoadingSummary ? (
+                <p className="mt-3 text-sm text-zinc-300">Generating concise summary…</p>
+              ) : summary ? (
+                <p className="mt-3 text-sm text-zinc-200">{summary.text}</p>
+              ) : (
+                <p className="mt-3 text-sm text-zinc-300">No summary available. The audit detected the highlights above.</p>
+              )}
             </div>
 
             <div className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-4">
