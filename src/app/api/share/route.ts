@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       },
       { status: 200 }
     );
-  } catch (err) {
+  } catch {
     return NextResponse.json({ error: "Failed to create share." }, { status: 500 });
   }
 }

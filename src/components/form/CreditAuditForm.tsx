@@ -13,6 +13,30 @@ type ToolRow = {
 
 type ServerAuditResult = {
   toolCount: number;
+  totalMonthlySpend: number;
+  actionableMonthlySavings: number;
+  actionableAnnualSavings: number;
+  recommendations: Array<{
+    title: string;
+    explanation: string;
+    monthlySavings: number;
+    annualSavings: number;
+    confidence: "low" | "medium" | "high";
+    severity: "low" | "medium" | "high";
+    type: "plan-downgrade" | "duplicate-tooling" | "redundancy";
+  }>;
+  overlapAnalysis: {
+    riskLevel: "low" | "medium" | "high";
+    riskScore: number;
+    capabilityClusters: Array<{ capability: string; tools: string[]; monthlyExposure: number }>;
+    detectedPatterns: string[];
+  };
+  scoring: {
+    efficiencyScore: number;
+    overlapRisk: number;
+    optimizationIndicators: string[];
+    heuristicOverlapRate: number;
+  };
   overlapWaste: number;
   seatWaste: number;
   potentialSavingsLow: number;
@@ -297,10 +321,58 @@ export default function CreditAuditForm() {
           <>
             <div className="mt-5 grid gap-3 text-sm">
               <div className="rounded-xl border border-white/15 bg-white/5 p-3">Tools detected: <strong>{result.toolCount}</strong></div>
-              <div className="rounded-xl border border-white/15 bg-white/5 p-3">Estimated overlap waste: <strong>${result.overlapWaste.toFixed(2)}</strong></div>
-              <div className="rounded-xl border border-white/15 bg-white/5 p-3">Estimated seat under-utilization waste: <strong>${result.seatWaste.toFixed(2)}</strong></div>
+              <div className="rounded-xl border border-white/15 bg-white/5 p-3">Total monthly spend: <strong>${result.totalMonthlySpend.toFixed(2)}</strong></div>
+              <div className="rounded-xl border border-emerald-300/25 bg-emerald-300/10 p-3 text-emerald-100">Actionable monthly savings: <strong>${result.actionableMonthlySavings.toFixed(2)}</strong></div>
+              <div className="rounded-xl border border-emerald-300/25 bg-emerald-300/10 p-3 text-emerald-100">Actionable annual savings: <strong>${result.actionableAnnualSavings.toFixed(2)}</strong></div>
               <div className="rounded-xl border border-white/15 bg-white/5 p-3">Spend efficiency score: <strong>{result.efficiencyScore}/100</strong></div>
-              <div className="rounded-xl border border-emerald-300/25 bg-emerald-300/10 p-3 text-emerald-100">Potential monthly savings: <strong>${result.potentialSavingsLow.toFixed(2)} - ${result.potentialSavingsHigh.toFixed(2)}</strong></div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-300">Recommendations</p>
+              {result.recommendations.length > 0 ? (
+                <div className="mt-3 space-y-3">
+                  {result.recommendations.map((rec) => (
+                    <div key={rec.title} className="rounded-xl border border-white/10 bg-black/20 p-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-semibold text-white">{rec.title}</p>
+                          <p className="mt-1 text-sm text-zinc-300">{rec.explanation}</p>
+                        </div>
+                        <div className="text-right text-sm text-zinc-300">
+                          <p>${rec.monthlySavings.toFixed(2)}/mo</p>
+                          <p>{rec.confidence} confidence</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-zinc-300">No actionable savings were identified for this configuration. That usually means the selected plan mix is already efficient or the current stack does not have a clear consolidation path.</p>
+              )}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-300">Overlap Analysis</p>
+              <p className="mt-2 text-sm text-zinc-200">Risk: <strong>{result.overlapAnalysis.riskLevel}</strong> ({result.overlapAnalysis.riskScore}/100)</p>
+              {result.overlapAnalysis.detectedPatterns.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-sm text-zinc-300">
+                  {result.overlapAnalysis.detectedPatterns.map((pattern) => (
+                    <li key={pattern}>• {pattern}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/15 bg-white/5 p-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-300">Scoring</p>
+              <p className="mt-2 text-sm text-zinc-200">Efficiency score: <strong>{result.scoring.efficiencyScore}/100</strong></p>
+              {result.scoring.optimizationIndicators.length > 0 ? (
+                <ul className="mt-2 space-y-1 text-sm text-zinc-300">
+                  {result.scoring.optimizationIndicators.map((indicator) => (
+                    <li key={indicator}>• {indicator}</li>
+                  ))}
+                </ul>
+              ) : null}
             </div>
 
             {shareUrl ? (

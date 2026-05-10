@@ -1,3 +1,13 @@
+import {
+	evaluateAudit,
+	type DeterministicAuditResult,
+} from "@/lib/audit-engine/evaluator";
+import type { OverlapAnalysis } from "@/lib/audit-engine/overlap-detector";
+import type {
+	AuditRecommendation,
+} from "@/lib/audit-engine/recommendation-rules";
+import type { ScoringResult } from "@/lib/audit-engine/scoring";
+
 export type ToolEntry = {
 	name: string;
 	plan?: string;
@@ -16,6 +26,14 @@ export type AuditInput = {
 
 export type AuditResult = {
 	toolCount: number;
+	totalMonthlySpend: number;
+	actionableMonthlySavings: number;
+	actionableAnnualSavings: number;
+	recommendations: AuditRecommendation[];
+	overlapAnalysis: OverlapAnalysis;
+	scoring: ScoringResult;
+
+	// Legacy fields retained for existing UI and API consumers.
 	overlapWaste: number;
 	seatWaste: number;
 	potentialSavingsLow: number;
@@ -43,10 +61,6 @@ export type ValidationOutcome<T> =
 function toNumber(value: string | number): number {
 	const parsed = Number(value);
 	return Number.isFinite(parsed) ? parsed : 0;
-}
-
-function clamp(value: number, min: number, max: number): number {
-	return Math.min(max, Math.max(min, value));
 }
 
 export function validateAuditInput(payload: unknown): ValidationOutcome<AuditInput> {
@@ -151,79 +165,26 @@ export function validateAuditInput(payload: unknown): ValidationOutcome<AuditInp
 }
 
 export function calculateAudit(input: AuditInput): AuditResult {
-	const tools = input.tools.map((t) => ({
+	const normalized = input.tools.map((t) => ({
 		name: String(t.name),
 		plan: t.plan ? String(t.plan) : undefined,
 		monthlySpend: toNumber(t.monthlySpend),
 		seats: t.seats !== undefined ? toNumber(t.seats) : undefined,
 	}));
 
-	const toolCount = Math.max(tools.length, 1);
+	const evaluated: DeterministicAuditResult = evaluateAudit({
+		tools: normalized,
+		primaryUseCase: String(input.primaryUseCase ?? ""),
+		teamSize: input.teamSize !== undefined ? toNumber(input.teamSize) : undefined,
+	});
 
-	const totalMonthlySpend = tools.reduce((s, t) => s + t.monthlySpend, 0);
-
-	const teamSize = input.teamSize !== undefined ? toNumber(input.teamSize) : undefined;
-
-	const planAdjustmentMap: Record<string, number> = {
-		starter: 0,
-		pro: 0.03,
-		business: 0.05,
-		enterprise: 0.08,
-	};
-
-	const useCaseAdjustment: Record<string, number> = {
-		coding: 0.04,
-		content: 0.03,
-		support: 0.025,
-		design: 0.03,
-		research: 0.02,
-		mixed: 0.035,
-	};
-
-	// Weighted average of plan adjustments by spend so that larger spend tools influence overlap more
-	const weightedPlanAdj = totalMonthlySpend > 0
-		? tools.reduce((acc, t) => acc + (planAdjustmentMap[t.plan ?? ""] ?? 0) * (t.monthlySpend / totalMonthlySpend), 0)
-		: 0;
-
-	const useCaseAdj = useCaseAdjustment[(input.primaryUseCase ?? "") as keyof typeof useCaseAdjustment] ?? 0;
-
-	const overlapRate = clamp(
-		0.08 + (toolCount - 1) * 0.07 + weightedPlanAdj + useCaseAdj,
-		0.08,
-		0.48
-	);
-
-	// Seat waste calculated per tool (if seats provided) and summed; otherwise, use an overall team size if provided
-	const perToolSeatWaste = tools.reduce((acc, t) => {
-		const seats = t.seats ?? teamSize ?? 0;
-		const seatRate = clamp(0.03 + Math.min(seats / 250, 0.12), 0.03, 0.15);
-		return acc + t.monthlySpend * seatRate;
-	}, 0);
-
-	const overlapWaste = totalMonthlySpend * overlapRate;
-	const seatWaste = perToolSeatWaste;
-
-	const potentialSavingsHigh = overlapWaste + seatWaste;
-	const potentialSavingsLow = potentialSavingsHigh * 0.62;
-
-	// Compute a combined seat waste rate to influence efficiency score
-	const combinedSeatRate = totalMonthlySpend > 0 ? seatWaste / totalMonthlySpend : 0;
-	const efficiencyScore = clamp(100 - Math.round((overlapRate + combinedSeatRate) * 110), 34, 96);
-
-	return {
-		toolCount,
-		overlapWaste,
-		seatWaste,
-		potentialSavingsLow,
-		potentialSavingsHigh,
-		efficiencyScore,
-	};
+	return evaluated;
 }
 
 export function generateAudit(input: AuditInput): AuditServiceResponse {
 	const result = calculateAudit(input);
 	const biggestLeak = result.overlapWaste >= result.seatWaste ? "overlap" : "seat-utilization";
-	const monthlySavingsEstimate = Number(result.potentialSavingsHigh.toFixed(2));
+	const monthlySavingsEstimate = Number(result.actionableMonthlySavings.toFixed(2));
 
 	return {
 		auditId: `audit_${Date.now()}`,

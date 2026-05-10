@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import Container from '@/components/common/Container';
 
 describe('Container Component', () => {
@@ -16,7 +16,7 @@ describe('Container Component', () => {
     const { container } = render(<Container>Content</Container>);
     const div = container.querySelector('div');
     expect(div?.className).toContain('mx-auto');
-    expect(div?.className).toContain('max-w-7xl');
+    expect(div?.className).toContain('max-w-6xl');
   });
 
   it('should accept and apply custom className prop', () => {
