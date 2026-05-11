@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Share {
+  id           String   @id @default(cuid())
+  shareId      String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+  primaryUseCase String
+  teamSize     Int?
+  tools        Json
+  auditResult  Json
+}
+
+model Lead {
+  id          String   @id @default(cuid())
+  leadId      String   @unique
+  email       String
+  capturedAt  DateTime @default(now())
+  context     Json
+  auditSnapshot Json?
+}

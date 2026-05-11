@@ -1,7 +1,7 @@
 /*
   AI Summary module
   - Builds a safe prompt from structured audit output
-  - Calls Anthropic SDK (integration skeleton)
+  - Calls Gemini SDK (integration skeleton)
   - Falls back to deterministic templated summary on error / timeout / invalid response
 
   Rules enforced in prompt builder:
@@ -66,47 +66,31 @@ export function fallbackSummary(input: SummaryInput) {
   return `${company}Snapshot for ${team} (${useCase}): ${savingsPhrase} Top recommendations: ${recs}`;
 }
 
-// Anthropic SDK integration structure (non-blocking). If Anthropic client is configured via
+import { GoogleGenerativeAI } from "@google/generative-ai";
+
+// Gemini SDK integration structure (non-blocking). If a Gemini client is configured via
 // environment variables, this function will attempt a call; otherwise it will immediately fallback.
 // The implementation purposely keeps the LLM call as a best-effort, with strict input and a timeout.
 
-type AnthropicClientLike = {
-  // Minimal surface used here — real SDKs may differ
-  completions: {
-    create: (opts: { model: string; prompt: string; max_tokens?: number }) => Promise<{ completion: string }>;
-  };
-};
+async function callGemini(prompt: string): Promise<string> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("Gemini API key missing");
 
-type AnthropicModuleLike = {
-  Anthropic: new (opts: { apiKey: string }) => AnthropicClientLike;
-};
-
-async function callAnthropic(prompt: string, client?: AnthropicClientLike): Promise<string> {
-  if (!client) {
-    // Try to dynamically import the SDK if available. Keep non-fatal.
-    try {
-      const anthropicSdk = (await import("@anthropic-ai/sdk")) as unknown as AnthropicModuleLike;
-      const key = process.env.ANTHROPIC_API_KEY;
-      if (!key) throw new Error("Anthropic API key missing");
-      const c = new anthropicSdk.Anthropic({ apiKey: key });
-      const res = await c.completions.create({ model: "claude-2", prompt, max_tokens: 300 });
-      return res.completion ?? "";
-    } catch (err) {
-      throw err;
-    }
-  }
-
-  const res = await client.completions.create({ model: "claude-2", prompt, max_tokens: 300 });
-  return res.completion;
+  const googleAI = new GoogleGenerativeAI(key);
+  const model = googleAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const res = await model.generateContent(prompt);
+  // Gemini SDK response object has a text() method
+  const text = typeof (res as any).text === "function" ? (res as any).text() : (res.response as any)?.text?.();
+  return text ?? "";
 }
 
-export async function generateSummary(input: SummaryInput, opts?: { client?: AnthropicClientLike; timeoutMs?: number }) {
+export async function generateSummary(input: SummaryInput, opts?: { timeoutMs?: number }) {
   const prompt = buildPrompt(input);
   const timeout = opts?.timeoutMs ?? LLM_TIMEOUT;
 
   // race LLM call vs timeout
   try {
-    const llmPromise = callAnthropic(prompt, opts?.client);
+    const llmPromise = callGemini(prompt);
     const result = await Promise.race([
       llmPromise,
       new Promise<string>((_, rej) => setTimeout(() => rej(new Error("LLM timeout")), timeout)),

@@ -140,7 +140,7 @@ export default function CreditAuditForm() {
           if (sres.ok && sb?.text) {
             setSummary({ text: sb.text, usedFallback: sb.usedFallback });
           }
-        } catch (err) {
+        } catch {
           // keep UI silent — fallback summary exists elsewhere
         } finally {
           setIsLoadingSummary(false);

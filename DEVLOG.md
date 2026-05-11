@@ -29,7 +29,7 @@
 **Hours worked:** 3
 **What I did:**
 - Implemented a deterministic, recommendation-based audit engine in `src/lib/audit-engine/` (pricing catalog, overlap detector, recommendation rules, scoring, evaluator) and rewired `src/services/audit.service.ts` to use `evaluateAudit()` while preserving legacy response fields for backward compatibility.
-- Added a safe LLM summarization layer at `src/lib/ai/ai-summary.ts` which builds a strict prompt, attempts an Anthropic SDK call if `ANTHROPIC_API_KEY` is present, validates numeric output against provided values, and falls back to a deterministic templated summary on timeout/error/hallucination.
+- Added a safe LLM summarization layer at `src/lib/ai/ai-summary.ts` which builds a strict prompt, attempts a Gemini SDK call if `GEMINI_API_KEY` is present, validates numeric output against provided values, and falls back to a deterministic templated summary on timeout/error/hallucination.
 - Wired the frontend to surface the summary: added `src/app/api/summary/route.ts` and updated `src/components/form/CreditAuditForm.tsx` to POST the audit result to `/api/summary`, showing a concise executive summary in the UI.
 - Implemented shareable links (`src/services/share.service.ts`, `/api/share`) and a public read-only audit page at `/audit/[shareId]`.
 - Fixed test & lint regressions, upgraded `@testing-library/react` for React 19 compatibility, and confirmed all tests and lint pass locally.
@@ -48,16 +48,12 @@
 - Add unit tests for the new `src/lib/audit-engine/*` modules and for `src/lib/ai/ai-summary.ts` validation/fallback behavior.
 
 **ENV / local setup for LLM:**
-- To enable Anthropic summarization locally, create a `.env.local` at the project root and add:
+- Create a `.env.local` file in the project root and add:
 
 ```
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+GEMINI_API_KEY=your_gemini_api_key_here
 ```
 
-- Optionally install the SDK for live calls:
+- If you need the SDK installed manually later, the package is `@google/generative-ai`.
 
-```bash
-npm install @anthropic-ai/sdk
-```
-
-If the key or SDK is absent, the service will automatically return a deterministic fallback summary.
+If the key is absent, the service automatically returns the deterministic fallback summary.

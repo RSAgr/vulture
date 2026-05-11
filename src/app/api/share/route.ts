@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const shared = createShare({
+    const shared = await createShare({
       tools: data.tools as Array<{ name: string; plan?: string; monthlySpend: number; seats?: number }>,
       primaryUseCase: data.primaryUseCase as string,
       teamSize: data.teamSize ? Number(data.teamSize) : undefined,
@@ -57,7 +57,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Share ID is required." }, { status: 400 });
   }
 
-  const result = getShare(shareId);
+  const result = await getShare(shareId);
 
   if (!result.ok) {
     return NextResponse.json({ error: result.errors[0] }, { status: 404 });

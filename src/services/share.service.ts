@@ -1,4 +1,5 @@
 import type { AuditResult } from "@/services/audit.service";
+import prisma from "@/lib/prisma";
 
 export type SharedAudit = {
   shareId: string;
@@ -17,55 +18,69 @@ export type SharedAudit = {
 
 export type ValidationOutcome<T> = { ok: true; data: T } | { ok: false; errors: string[] };
 
-// In-memory storage (TODO: replace with database)
-const sharedAudits = new Map<string, SharedAudit>();
-
 function generateShareId(): string {
   return `share_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
 }
 
-export function createShare(payload: {
+export async function createShare(payload: {
   tools: Array<{ name: string; plan?: string; monthlySpend: number; seats?: number }>;
   primaryUseCase: string;
   teamSize?: number;
   auditResult: AuditResult;
-}): SharedAudit {
+}): Promise<SharedAudit> {
   const shareId = generateShareId();
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days
 
-  const shared: SharedAudit = {
-    shareId,
-    createdAt: now.toISOString(),
-    expiresAt: expiresAt.toISOString(),
+  const created = await prisma.share.create({
+    data: {
+      shareId,
+      createdAt: now,
+      expiresAt,
+      primaryUseCase: payload.primaryUseCase,
+      teamSize: payload.teamSize ?? null,
+      tools: payload.tools as any,
+      auditResult: payload.auditResult as any,
+    },
+  });
+
+  return {
+    shareId: created.shareId,
+    createdAt: created.createdAt.toISOString(),
+    expiresAt: created.expiresAt.toISOString(),
     tools: payload.tools,
     primaryUseCase: payload.primaryUseCase,
     teamSize: payload.teamSize,
     auditResult: payload.auditResult,
   };
-
-  sharedAudits.set(shareId, shared);
-  return shared;
 }
 
-export function getShare(shareId: string): ValidationOutcome<SharedAudit> {
+export async function getShare(shareId: string): Promise<ValidationOutcome<SharedAudit>> {
   if (!shareId || typeof shareId !== "string") {
     return { ok: false, errors: ["Invalid share ID."] };
   }
 
-  const shared = sharedAudits.get(shareId);
+  const record = await prisma.share.findUnique({ where: { shareId } });
+  if (!record) return { ok: false, errors: ["Shared audit not found."] };
 
-  if (!shared) {
-    return { ok: false, errors: ["Shared audit not found."] };
-  }
-
-  const expiresAt = new Date(shared.expiresAt);
+  const expiresAt = new Date(record.expiresAt);
   if (new Date() > expiresAt) {
-    sharedAudits.delete(shareId);
+    await prisma.share.delete({ where: { shareId } });
     return { ok: false, errors: ["This shared audit has expired."] };
   }
 
-  return { ok: true, data: shared };
+  return {
+    ok: true,
+    data: {
+      shareId: record.shareId,
+      createdAt: record.createdAt.toISOString(),
+      expiresAt: record.expiresAt.toISOString(),
+      primaryUseCase: record.primaryUseCase,
+      teamSize: record.teamSize ?? undefined,
+      tools: record.tools as any,
+      auditResult: record.auditResult as any,
+    },
+  };
 }
 
 export function generateShareUrl(shareId: string): string {

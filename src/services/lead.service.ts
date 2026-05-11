@@ -1,4 +1,5 @@
 import type { AuditResult } from "@/services/audit.service";
+import prisma from "@/lib/prisma";
 
 export type LeadInput = {
 	email: string;
@@ -24,9 +25,7 @@ export type LeadRecord = {
 	auditSnapshot: AuditResult | null;
 };
 
-export type ValidationOutcome<T> =
-	| { ok: true; data: T }
-	| { ok: false; errors: string[] };
+export type ValidationOutcome<T> = | { ok: true; data: T } | { ok: false; errors: string[] };
 
 function toNumber(value: string | number | undefined): number {
 	const parsed = Number(value);
@@ -68,18 +67,30 @@ export function validateLeadInput(payload: unknown): ValidationOutcome<LeadInput
 	};
 }
 
-export function createLead(input: LeadInput): LeadRecord {
+export async function createLead(input: LeadInput): Promise<LeadRecord> {
+	const leadId = `lead_${Date.now()}`;
+	const context = {
+		toolsPaidFor: input.toolsPaidFor ?? "",
+		planType: input.planType ?? "",
+		monthlySpend: toNumber(input.monthlySpend),
+		teamSize: toNumber(input.teamSize),
+		primaryUseCase: input.primaryUseCase ?? "",
+	};
+
+	await prisma.lead.create({
+		data: {
+			leadId,
+			email: input.email,
+			context: context as any,
+			auditSnapshot: input.auditSnapshot as any,
+		},
+	});
+
 	return {
-		leadId: `lead_${Date.now()}`,
+		leadId,
 		email: input.email,
 		capturedAt: new Date().toISOString(),
-		context: {
-			toolsPaidFor: input.toolsPaidFor ?? "",
-			planType: input.planType ?? "",
-			monthlySpend: toNumber(input.monthlySpend),
-			teamSize: toNumber(input.teamSize),
-			primaryUseCase: input.primaryUseCase ?? "",
-		},
+		context,
 		auditSnapshot: input.auditSnapshot ?? null,
 	};
 }

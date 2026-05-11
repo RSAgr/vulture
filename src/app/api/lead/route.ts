@@ -20,7 +20,7 @@ export async function POST(request: Request) {
 	}
 
 	try {
-		const lead = createLead(validation.data);
+		const lead = await createLead(validation.data);
 
 		return NextResponse.json(
 			{
