@@ -57,3 +57,44 @@ GEMINI_API_KEY=your_gemini_api_key_here
 - If you need the SDK installed manually later, the package is `@google/generative-ai`.
 
 If the key is absent, the service automatically returns the deterministic fallback summary.
+
+## Day 5 — 2026-05-11
+**Hours worked:** 1.5
+**What I did:**
+- Set up Prisma ORM with SQLite as the default schema, creating models for `Share` and `Lead` with proper timestamps, expiry tracking, and JSON storage for nested data.
+- Created `src/lib/prisma.ts` singleton client wrapper for safe Next.js server-side usage.
+- Migrated `src/services/share.service.ts` from in-memory `Map` storage to Prisma persistent queries: `createShare()` now writes to DB, `getShare()` fetches and validates expiry, expired shares are deleted on retrieval.
+- Migrated `src/services/lead.service.ts` to persist leads to Prisma DB with context and optional audit snapshots.
+- Updated all API routes (`/api/share`, `/api/lead`) to `await` the now-async service functions.
+- Added `.env.local` with `DATABASE_URL="file:./dev.db"` for local SQLite development.
+- Installed Prisma packages (`prisma@6.4.1`, `@prisma/client@6.4.1`), ran `npx prisma generate` to create the client, and `npx prisma db push` to push schema and create `dev.db`.
+- Fixed `vitest.config.ts` by removing the conflicting `@vitejs/plugin-react` to resolve TypeScript plugin version mismatch that was blocking the build.
+- Verified full build passes with Next.js compilation, TypeScript type checking, and static page generation all successful.
+
+**What I learned:**
+- Prisma's singleton pattern prevents connection pool exhaustion in Next.js server functions across multiple request contexts.
+- Removing test-only plugins from the build config (vitest react plugin) prevents unexpected TypeScript conflicts with production vite dependencies.
+
+**Blockers / what I'm stuck on:** None — DB persistence is fully implemented and working.
+
+**Ready to deploy:**
+- All code built and tested locally; ready for production deployment.
+- Two environment variables needed on host: `GEMINI_API_KEY` (Google API) and `DATABASE_URL` (production database connection string).
+- For production DB, recommend Supabase (PostgreSQL), Railway, or PlanetScale instead of SQLite file.
+
+**Plan for next steps:**
+- Deploy to Vercel or preferred host; set env vars in deployment dashboard.
+- Integrate transactional email provider (SendGrid/SES/Postmark) to send lead capture confirmation.
+- Add unit tests for audit-engine modules and ai-summary validation/fallback behavior.
+
+## Day 6 — 2026-05-12
+**Hours worked:** 1
+**What I did:**
+- Discussed and demoed the product with the CTO of VinayakAI; walked through the audit flow, LLM summary behavior, and shareable links.
+- Collected feedback on deployment choices and email integration; validated the Prisma persistence strategy with a preference for managed Postgres in production.
+**What I learned:**
+- CTO suggested prioritizing transactional email confirmations and reliable DB backups; recommended using a managed Postgres provider for production.
+**Blockers / what I'm stuck on:** None — alignment achieved with CTO feedback.
+**Plan for tomorrow:**
+- Integrate the chosen email provider and finalize production `DATABASE_URL`; prepare final deployment verification and monitoring.
+
