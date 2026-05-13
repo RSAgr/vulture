@@ -1,5 +1,6 @@
 import type { AuditResult } from "@/services/audit.service";
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export type LeadInput = {
 	email: string;
@@ -81,8 +82,8 @@ export async function createLead(input: LeadInput): Promise<LeadRecord> {
 		data: {
 			leadId,
 			email: input.email,
-			context: context as any,
-			auditSnapshot: input.auditSnapshot as any,
+			context: context as Prisma.InputJsonValue,
+			auditSnapshot: input.auditSnapshot as Prisma.InputJsonValue,
 		},
 	});
 

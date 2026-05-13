@@ -1,5 +1,6 @@
 import type { AuditResult } from "@/services/audit.service";
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 export type SharedAudit = {
   shareId: string;
@@ -39,8 +40,8 @@ export async function createShare(payload: {
       expiresAt,
       primaryUseCase: payload.primaryUseCase,
       teamSize: payload.teamSize ?? null,
-      tools: payload.tools as any,
-      auditResult: payload.auditResult as any,
+      tools: payload.tools as Prisma.InputJsonValue,
+      auditResult: payload.auditResult as Prisma.InputJsonValue,
     },
   });
 
@@ -77,8 +78,8 @@ export async function getShare(shareId: string): Promise<ValidationOutcome<Share
       expiresAt: record.expiresAt.toISOString(),
       primaryUseCase: record.primaryUseCase,
       teamSize: record.teamSize ?? undefined,
-      tools: record.tools as any,
-      auditResult: record.auditResult as any,
+      tools: record.tools as SharedAudit["tools"],
+      auditResult: record.auditResult as AuditResult,
     },
   };
 }

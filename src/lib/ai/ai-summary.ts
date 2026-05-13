@@ -67,6 +67,7 @@ export function fallbackSummary(input: SummaryInput) {
 }
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import type { GenerateContentResult } from "@google/generative-ai";
 
 // Gemini SDK integration structure (non-blocking). If a Gemini client is configured via
 // environment variables, this function will attempt a call; otherwise it will immediately fallback.
@@ -78,10 +79,18 @@ async function callGemini(prompt: string): Promise<string> {
 
   const googleAI = new GoogleGenerativeAI(key);
   const model = googleAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const res = await model.generateContent(prompt);
-  // Gemini SDK response object has a text() method
-  const text = typeof (res as any).text === "function" ? (res as any).text() : (res.response as any)?.text?.();
-  return text ?? "";
+  const res: GenerateContentResult = await model.generateContent(prompt);
+
+  if (typeof res.text === "function") {
+    return res.text();
+  }
+
+  const response = res.response;
+  if (response && typeof response.text === "function") {
+    return response.text();
+  }
+
+  return "";
 }
 
 export async function generateSummary(input: SummaryInput, opts?: { timeoutMs?: number }) {
